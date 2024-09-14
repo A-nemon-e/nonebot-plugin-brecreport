@@ -21,7 +21,7 @@ Field | Type | Desc | Default | Note
 `brec_report_route` |  `str` | 路由 | `/brec_report` | 若与其它路由冲突可以更换该值
 `brec_report_template` | `str` | 消息模板 | `主播{Name}开播了！标题：{Title}\n直播分区：{AreaNameParent}-{AreaNameChild}\nhttps://live.bilibili.com/{RoomId}` | 支持 `{Name}`（主播名）， `{Title}`（直播标题）， `{AreaNameParent}`（主分区）， `{AreaNameChild}`（二级分区）， `{RoomId}`（长房间号） 5个字段
 `brec_report_roomids` | `Optional[List[str]]` | 要报告的B站直播间号 | | 长或短号都支持，若不设置，谁开播都不会报告
-`brec_report_roomids` | `Optional[List[str]]` | 报告的群号 | | 
+`brec_report_send_to_group` | `Optional[List[str]]` | 报告的群号 | | 
 
 ### 录播姬配置
 
