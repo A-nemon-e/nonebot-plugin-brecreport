@@ -11,8 +11,8 @@ from .config import Config
 
 
 __plugin_meta__ = PluginMetadata(
-    name='推送钩子',
-    description='实现消息推送自由',
+    name='适配录播姬webhook的b站开播提醒（forked from nonebot-plugin-report）',
+    description='实现几乎实时的开播提醒',
     usage='详见项目 README.md'
 )
 
@@ -25,83 +25,119 @@ if not isinstance(driver, ReverseDriver) or not isinstance(driver.server_app, Fa
 
 ID = Union[str, int]
 
+class EventData(BaseModel):
+    RoomId: int
+    ShortId: int
+    Name: str
+    Title: str
+    AreaNameParent: str
+    AreaNameChild: str
+
 class Report(BaseModel):
-    token: Optional[str] = Field(None, exclude=True)
-    title: Optional[str] = None
-    content: str
-    send_from: Optional[ID] = None
-    send_to: Optional[List[ID]] = None
-    send_to_group: Optional[List[ID]] = None
+    # token: Optional[str] = Field(None, exclude=True)
+    # title: str = Field(..., alias="EventType")  
+    EventType: str
+    EventTimestamp: str
+    EventData: EventData
+    # send_from: Optional[ID] = None
+    #send_to_group: Optional[List[ID]] = None
 
     @root_validator(pre=True)
-    def _aliases(cls, v):
-        if v.get('send_from') is None:
-            v['send_from'] = v.get('from')
-        if v.get('send_to') is None:
-            v['send_to'] = v.get('to')
-        if v.get('send_to_group') is None:
-            v['send_to_group'] = v.get('to_group')
-        return v
+    def check_event_type(cls, values):
+        # 只处理 EventType 为 "StreamStarted" 的请求
+        # if values.get("EventType") != "StreamStarted":
+        #     raise ValueError(status_code=200, detail="EventType is not StreamStarted, request discarded.")
+    
+        # # 获取 RoomId 和 ShortId
+        # event_data = values.get("EventData", {})
+        # room_id = str(event_data.get("RoomId"))
+        # short_id = str(event_data.get("ShortId"))
+    
+        # # 获取 config 中的 brec_report_roomids 列表
+        # allowed_room_ids = config.brec_report_roomids
+    
+        # # 如果 allowed_room_ids 列表为空，则允许继续处理
+        # if allowed_room_ids:
+        #     if room_id not in allowed_room_ids and short_id not in allowed_room_ids:
+        #         raise ValueError(status_code=200, detail="RoomId or ShortId is not in the allowed list, request discarded.")
+        
+        return values
 
-    def _validate(cls, v):
-        if v is None or isinstance(v, list):
-            return v
-        else:
-            return [v]
+    # # 处理 send_to_group 确保它是列表
+    # def _validate(cls, v):
+    #     if v is None or isinstance(v, list):
+    #         return v
+    #     else:
+    #         return [v]
 
-    _v_st = validator('send_to', pre=True, allow_reuse=True)(_validate)
-    _v_stg = validator('send_to_group', pre=True, allow_reuse=True)(_validate)
+    # _v_stg = validator('send_to_group', pre=True, allow_reuse=True)(_validate)
+
 
 
 app = FastAPI()
 
-@app.post(config.report_route, status_code=200)
+@app.post(config.brec_report_route, status_code=200)
 async def push(r: Report):
-    if config.report_token is not None \
-    and r.token != config.report_token:
-        raise HTTPException(status.HTTP_403_FORBIDDEN)
+    # if config.report_token is not None \
+    # and r.token != config.report_token:
+    #     raise HTTPException(status.HTTP_403_FORBIDDEN)
+    if r.EventType != "StreamStarted":
+        return
 
-    msg = config.report_template.format(
-        title=r.title or '',
-        content=r.content
+    allowed_room_ids = config.brec_report_roomids
+    
+        # 如果 allowed_room_ids 列表为空，则允许继续处理
+    if allowed_room_ids:
+        if r.EventData.RoomId not in allowed_room_ids and r.EventData.ShortId not in allowed_room_ids:
+            return
+    
+    msg = config.brec_report_template.format(
+        # title=r.title or '',
+        # content=r.content
+        Name=r.EventData.Name,
+        Title=r.EventData.Title,
+        AreaNameParent=r.EventData.AreaNameParent,
+        AreaNameChild=r.EventData.AreaNameChild,
+        RoomId=r.EventData.RoomId
     )
     try:
-        bot = get_bot(r.send_from or config.report_from)
+        # bot = get_bot(r.send_from or config.report_from)
+        bot = get_bot(config.brec_report_from)
     except KeyError:
-        logger.warning(f'No bot with specific id: {r.send_from}')
+        logger.warning(f'No bot with specific id: {config.brec_report_from}')
         return
     except ValueError:
         logger.warning('No bot available or driver not initialized')
         return
 
-    if r.send_to is None:
-        if r.send_to_group is None:
-            uids = config.superusers
-        else:
-            uids = []
-    else:
-        uids = r.send_to
+    # if r.send_to is None:
+    #     if r.send_to_group is None:
+    #         uids = config.superusers
+    #     else:
+    #         uids = []
+    # else:
+    #     uids = r.send_to
 
-    for uid in uids:
-        await bot.send_msg(user_id=uid, message=msg, message_type='private')
+    # for uid in uids:
+    #     await bot.send_msg(user_id=uid, message=msg, message_type='private')
 
-    if r.send_to_group is None:
+    if config.brec_report_send_to_group is None:
         gids = []
     else:
-        gids = r.send_to_group
+        gids = config.brec_report_send_to_group
 
     for gid in gids:
         await bot.send_msg(group_id=gid, message=msg, message_type='group')
 
     logger.info(
-        f'Report pushed: {r.json()}'
+        f'BrecReport pushed: {r.json()}'
     )
 
 
 @driver.on_startup
 async def startup():
-    if not config.report_token and config.environment == 'prod':
-        logger.warning('You are in production environment without setting a token')
+    # if not config.report_token and config.environment == 'prod':
+    #     logger.warning('You are in production environment without setting a token')
 
     driver.server_app.mount('/', app)
-    logger.info(f'Mounted to {config.report_route}')
+    logger.info(f'Mounted to {config.brec_report_route}')
