@@ -11,8 +11,8 @@ from .config import Config
 
 
 __plugin_meta__ = PluginMetadata(
-    name='适配录播姬webhook的b站开播提醒（forked from nonebot-plugin-report）',
-    description='实现几乎实时的开播提醒',
+    name='nonebot-plugin-brecreport'
+    description='适配录播姬webhook的b站开播提醒',
     usage='详见项目 README.md', 
 
     type="application",
