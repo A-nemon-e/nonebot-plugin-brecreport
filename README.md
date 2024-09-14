@@ -29,7 +29,7 @@ Field | Type | Desc | Default | Note
 
 ## 原理
 
-录播姬在监控开播情况时可以发起Webhook（详见https://rec.danmuji.org/reference/webhook/）取 `"EventType": "StreamStarted"` 作为直播提醒。
+录播姬在监控开播情况时可以发起Webhook（详见https://rec.danmuji.org/reference/webhook/ ），取 `"EventType": "StreamStarted"` 作为直播提醒。
 
 **Note:** 
 录播姬中，对某直播房间关闭自动录制后，录播姬仍可发起 `StreamStarted`， `StreamEnded` 两种Webhook。
